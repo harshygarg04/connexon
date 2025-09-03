@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Wrapper from "./style";
 import Loader from "../../components/Loader";
+import axiosInstance from '../../axios/axiosInstance';
 
 
 const Login = () => {
@@ -21,7 +22,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post("https://connexon-backend.onrender.com/api/admin/login", {
+      const response = await axiosInstance.post("/api/admin/login", {
         email,
         password,
       });

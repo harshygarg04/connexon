@@ -59,7 +59,7 @@ const UserPayments = () => {
                     setPlans(res.data.data); // full objects: id, name, etc.
                 }
             } catch (err) {
-                console.error("❌ Failed to fetch plans:", err.response?.data || err);
+                console.error("❌ Failed to fetch plans :", err.response?.data || err);
             }
         };
 

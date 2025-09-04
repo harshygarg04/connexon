@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { FaSearch, FaEdit, FaEye } from "react-icons/fa";
 import { MdAddCircle, MdDelete, MdClose, MdLockReset } from "react-icons/md";
 import axiosInstance from "../../axios/axiosInstance";
@@ -12,8 +12,6 @@ import { confirmAlert } from 'react-confirm-alert';
 
 
 
-
-
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
@@ -22,6 +20,32 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [originalUser, setOriginalUser] = useState({});
+
+
+  const filteredUsers = useMemo(() => {
+    if (!Array.isArray(users)) return []; // guard
+
+    const q = (search || "").trim().toLowerCase();
+    if (!q) return users;
+
+    return users.filter((u) => {
+      const nameParts = [
+        u.full_name,
+        u.first_name,
+        u.middle_name,
+        u.last_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const email = (u.email || "").toLowerCase();
+      const phone = String(u.phone || "").toLowerCase();
+
+      return nameParts.includes(q) || email.includes(q) || phone.includes(q);
+    });
+  }, [users, search]);
+
 
 
   const handleDeleteWithConfirm = (id) => {
@@ -216,7 +240,7 @@ const UserManagement = () => {
         }
 
         if (currentUser.dob !== originalUser.dob) {
-          payload.dob = currentUser.dob?.trim() || "";              // allow null/empty
+          payload.dob = currentUser.dob?.trim() || null;              // allow null/empty
         }
 
         if (currentUser.address !== originalUser.address) {
@@ -267,26 +291,47 @@ const UserManagement = () => {
           payload
         );
 
-        const updatedUser = res.data.data; // backend sends full profile
+        const apiUser = res.data?.data ?? {};
 
-        // Normalize backend response again for frontend
-        const phones = updatedUser.phone_numbers || [];
-        const normalizedUser = {
-          phone: phones[0]?.phone_number || "",
-          phone_id: phones[0]?.id || null,
-          otherPhones: phones.slice(1).map((p) => ({
-            id: p.id,
-            phone_number: p.phone_number,
-          })),
-        };
+        setUsers(prev =>
+          prev.map(u => {
+            if (u.id !== currentUser.id) return u;
 
-        // Merge into users state
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === currentUser.id ? { ...u, ...normalizedUser } : u
-          )
+            // Start from what user typed (optimistic), then overlay API response if any
+            let merged = { ...u, ...currentUser, ...apiUser };
+
+            // Handle dob explicitly
+            if (apiUser.hasOwnProperty("dob")) {
+              // normalize if present
+              merged.dob = apiUser.dob ? apiUser.dob.split("T")[0] : "";
+            } else if (currentUser.dob === "") {
+              // if frontend cleared it, force empty string
+              merged.dob = "";
+            }
+
+            // Only (re)build phone fields if API sent phone_numbers
+            if (Array.isArray(apiUser.phone_numbers)) {
+              const phones = apiUser.phone_numbers;
+              merged.phone = phones[0]?.phone_number || "";
+              merged.phone_id = phones[0]?.id ?? null;
+              merged.otherPhones = phones.slice(1).map(p => ({
+                id: p.id,
+                phone_number: p.phone_number,
+              }));
+            }
+
+            // Recompute full_name so UI updates immediately
+            merged.full_name = [merged.first_name, merged.middle_name, merged.last_name]
+              .filter(Boolean)
+              .join(" ");
+
+
+            return merged;
+          })
         );
+
         toast.success(res.data?.message || "User updated successfully!");
+
       }
       closeModal();
     } catch (error) {
@@ -516,13 +561,8 @@ const UserManagement = () => {
             </tr>
           </thead>
           <tbody>
-            {users.filter((u) =>
-              [u.first_name, u.middle_name, u.last_name]
-                .filter(Boolean) // remove null/undefined/empty
-                .join(" ")
-                .toLowerCase()
-                .includes(search.toLowerCase())
-            ).length === 0 ? (
+
+            {filteredUsers.length === 0 ? (
               <tr>
                 <td colSpan="9" style={{ textAlign: "center", padding: "20px" }}>
                   No user found
@@ -531,82 +571,82 @@ const UserManagement = () => {
 
 
             ) : (
-              users
-                .filter((u) => `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase()))
-                .map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <input type="checkbox" checked={user.selected} onChange={() => handleSelectUser(user.id)} />
-                    </td>
-                    <td>{user.id}</td>
-                    <td className="name-wrap">
-                      <div className="name-text">
-                        {user.full_name ||
-                          [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" ")}
-                      </div>
-                    </td>
-                    <td className="name-wrap"><div
-                      className="name-text"
-                    >{user.email}</div> </td>
-                    <td>{user.phone || "N/A"}</td>
-                    <td>{user.plan_details?.name || "N/A"}</td>
-                    <td>
-                      <label className="switch">
-                        <input
-                          type="checkbox"
-                          checked={user.status === "active"}
-                          onChange={() => handleToggleStatus(user)}
-                        />
-                        <span className="slider round"></span>
-                      </label>
-                    </td>
-                    <td>
-                      <label className="switch">
-                        <input
-                          type="checkbox"
-                          checked={user.active_qr_code?.is_active && !user.active_qr_code?.qr_disabled_by_admin}
-                          onClick={(e) => {
-                            // Case 1: Never generated
-                            if (!user.active_qr_code?.qr_code_data) {
-                              e.preventDefault();
-                              toast.error("This user has not generated a QR code yet. Enable/disable is not allowed.");
-                              return;
-                            }
 
-                            // Case 2: System disabled
-                            if (user.active_qr_code?.is_active === false) {
-                              e.preventDefault();
-                              toast.error("QR Code is disabled by system. Admin cannot change this status.");
-                              return;
-                            }
-                          }}
-                          // ✅ Only run toggle handler if QR code is valid
-                          onChange={() => {
-                            if (user.active_qr_code?.qr_code_data && user.active_qr_code?.is_active !== false) {
-                              handleToggleQrCodeStatus(user);
-                            }
-                          }}
-                        />
-                        <span className="slider round"></span>
-                      </label>
+              filteredUsers.map((user) => (
+                <tr key={user.id}>
+                  <td>
+                    <input type="checkbox" checked={user.selected} onChange={() => handleSelectUser(user.id)} />
+                  </td>
+                  <td>{user.id}</td>
+                  <td className="name-wrap">
+                    <div className="name-text">
+                      {[user.first_name, user.middle_name, user.last_name]
+                        .filter(Boolean)
+                        .join(" ") || user.full_name}
+                    </div>
+                  </td>
+                  <td className="name-wrap"><div
+                    className="name-text"
+                  >{user.email}</div> </td>
+                  <td>{user.phone || "N/A"}</td>
+                  <td>{user.plan_details?.name || "N/A"}</td>
+                  <td>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={user.status === "active"}
+                        onChange={() => handleToggleStatus(user)}
+                      />
+                      <span className="slider round"></span>
+                    </label>
+                  </td>
+                  <td>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={user.active_qr_code?.is_active && !user.active_qr_code?.qr_disabled_by_admin}
+                        onClick={(e) => {
+                          // Case 1: Never generated
+                          if (!user.active_qr_code?.qr_code_data) {
+                            e.preventDefault();
+                            toast.error("This user has not generated a QR code yet. Enable/disable is not allowed.");
+                            return;
+                          }
+
+                          // Case 2: System disabled
+                          if (user.active_qr_code?.is_active === false) {
+                            e.preventDefault();
+                            toast.error("QR Code is disabled by system. Admin cannot change this status.");
+                            return;
+                          }
+                        }}
+                        // ✅ Only run toggle handler if QR code is valid
+                        onChange={() => {
+                          if (user.active_qr_code?.qr_code_data && user.active_qr_code?.is_active !== false) {
+                            handleToggleQrCodeStatus(user);
+                          }
+                        }}
+                      />
+                      <span className="slider round"></span>
+                    </label>
 
 
-                    </td>
-                    <td>
-                      <div className="button">
-                        <button className="view-btn" onClick={() => openModal("view", user)}>
-                          <FaEye size={20} />
-                        </button>
-                        <button className="edit-btn" onClick={() => openModal("edit", user)}>
-                          <FaEdit size={20} />
-                        </button>
-                        <button className="delete-btn" onClick={() => handleDeleteWithConfirm(user.id)}>
-                          <MdDelete size={20} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                  </td>
+                  <td>
+                    <div className="button">
+                      <button className="view-btn" onClick={() => openModal("view", user)}>
+                        <FaEye size={20} />
+                      </button>
+                      <button className="edit-btn" onClick={() => openModal("edit", user)}>
+                        <FaEdit size={20} />
+                      </button>
+                      <button className="delete-btn" onClick={() => handleDeleteWithConfirm(user.id)}>
+                        <MdDelete size={20} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -638,6 +678,36 @@ const UserManagement = () => {
                   : "N/A"}
               </span>
             </p>
+            <p className="qr-row" style={{ position: "relative", display: "inline-block", marginTop: "10px" }}>
+              {currentUser.active_qr_code?.qr_code_data ? (
+                <>
+                  <b
+                    style={{
+                      position: "absolute",
+                      top: "5px",
+                      left: "5px",
+                     // background: "rgba(255,255,255,0.7)",
+                      padding: "2px 6px",
+                      fontSize: "15px",
+                      borderRadius: "4px"
+                    }}
+                  >
+                    QR Code:
+                  </b>
+                  <img
+                    src={currentUser.active_qr_code.qr_code_data}
+                    alt="User QR Code"
+                    style={{ width: "150px", height: "150px", display: "block",marginLeft:"100px" }}
+                  />
+                </>
+              ) : (
+                <>
+                  <b>QR Code:</b> <span>No QR code generated by this user</span>
+                </>
+              )}
+            </p>
+
+
           </div>
         </div>
       )}

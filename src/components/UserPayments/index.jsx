@@ -13,6 +13,7 @@ const UserPayments = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+
         const fetchPayments = async () => {
             try {
                 const res = await axiosInstance.get("/api/admin/user"); // fetch all users
@@ -33,8 +34,8 @@ const UserPayments = () => {
                         validityStart: new Date(u.active_payment.plan_start_date).toISOString().split("T")[0],
                         validityEnd: new Date(u.active_payment.plan_end_date).toISOString().split("T")[0],
                         selected: false,
-                    }));
 
+                    }));
                     setPayments(mapped);
                 }
             } catch (err) {
@@ -149,6 +150,7 @@ const UserPayments = () => {
             y += 10;
         });
 
+        
         // Footer / Thank you
         doc.setTextColor(100);
         doc.setFontSize(11);
@@ -250,7 +252,7 @@ const UserPayments = () => {
                                             ))}
 
                                         {subFilterOpen === 'method' &&
-                                            ['UPI', 'Debit Card', 'Credit Card', 'Netbanking', "QR Code"].map((method) => (
+                                            ['Free','UPI', 'Debit Card', 'Credit Card', 'Netbanking','Wallet', "QR Code"].map((method) => (
                                                 <div
                                                     key={method}
                                                     onClick={() => {
@@ -375,7 +377,7 @@ const UserPayments = () => {
                                             </button>
                                         </td>
                                     </tr>
-                                ))
+                             ))
                         )}
                     </tbody>
 

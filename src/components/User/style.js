@@ -396,7 +396,7 @@ const Wrapper = styled.section`
 .view-modal {
   //background: #f9fafb; /* light gray */
   border: 2px solid #007bff; /* highlight border */
-  max-width: 500px;
+  max-width: 550px;
   margin: auto;
   text-align: left;
 }

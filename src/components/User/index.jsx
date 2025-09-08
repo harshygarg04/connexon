@@ -248,39 +248,34 @@ const UserManagement = () => {
         }
 
         // Phones (if changed)
-        if (
-          currentUser.phone !== originalUser.phone ||
-          JSON.stringify(currentUser.otherPhones) !==
-          JSON.stringify(originalUser.otherPhones)
-        ) {
+        // if (
+        //   currentUser.phone !== originalUser.phone ||
+        //   JSON.stringify(currentUser.otherPhones) !==
+        //   JSON.stringify(originalUser.otherPhones)
+        // ) 
+        {
+          // Replace-all phone_numbers array
           payload.phone_numbers = [];
 
-          // main phone
-          if (originalUser.phone_id) {
-            payload.phone_numbers.push({
-              id: originalUser.phone_id,
-              country_code: "+91",
-              phone_number: currentUser.phone,
-            });
-          } else {
+          // index 0 → main registration number
+          if (currentUser.phone?.trim()) {
             payload.phone_numbers.push({
               country_code: "+91",
-              phone_number: currentUser.phone,
+              phone_number: currentUser.phone.trim(),
             });
           }
 
-          // other phones
-          currentUser.otherPhones.forEach((num, i) => {
-            const existing = originalUser.otherPhones[i];
-            const phone_number = typeof num === "string" ? num : num.phone_number;
-            if (phone_number?.trim() !== "") {
+          // index 1+ → other numbers
+          (currentUser.otherPhones || []).forEach((num) => {
+            if (num.phone_number?.trim()) {
               payload.phone_numbers.push({
-                id: existing?.id,
-                country_code: "+91",
-                phone_number,
+                country_code: num.country_code || "+91",
+                phone_number: num.phone_number.trim(),
               });
             }
           });
+
+
         }
 
         console.log("Sending payload:", payload);
@@ -316,6 +311,7 @@ const UserManagement = () => {
               merged.phone_id = phones[0]?.id ?? null;
               merged.otherPhones = phones.slice(1).map(p => ({
                 id: p.id,
+                country_code: p.country_code,
                 phone_number: p.phone_number,
               }));
             }
@@ -554,7 +550,7 @@ const UserManagement = () => {
               <th>Name</th>
               <th>Email</th>
               <th>Reg. Phone</th>
-              <th>Plan</th>
+              <th>Active Plan</th>
               <th>User</th>
               <th>QR Code</th>
               <th>Actions</th>
@@ -589,7 +585,12 @@ const UserManagement = () => {
                     className="name-text"
                   >{user.email}</div> </td>
                   <td>{user.phone || "N/A"}</td>
-                  <td>{user.plan_details?.name || "N/A"}</td>
+                  <td>{user.plan_details?.name
+                    || user.active_payments?.[0]?.plan_name
+                    || user.all_payments?.[0]?.plan_name
+                    || "N/A"}
+                  </td>
+
                   <td>
                     <label className="switch">
                       <input
@@ -665,7 +666,20 @@ const UserManagement = () => {
             <p><b>Email:</b> {currentUser.email}</p>
             <p><b>Date Of Birth:</b> {currentUser.dob || "N/A"}</p>
             <p><b>Address:</b> {currentUser.address || "N/A"}</p>
-            <p><b>Plan:</b> {currentUser.plan_details?.name || "N/A"}</p>
+            <p><b>Plans Purchased:</b></p>
+            {currentUser.all_payments?.length > 0 ? (
+              <ul style={{ marginLeft: "20px" }}>
+                {currentUser.all_payments.map((p, i) => (
+                  <li key={i}>
+                    {p.plan_name} — {p.status}
+                    ({p.plan_start_date?.split("T")[0]} → {p.plan_end_date?.split("T")[0]})
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No plans purchased</p>
+            )}
+
             <p className="phone-row">
               <b>Other Numbers:</b>
               <span className="phone-grid">
@@ -686,7 +700,7 @@ const UserManagement = () => {
                       position: "absolute",
                       top: "5px",
                       left: "5px",
-                     // background: "rgba(255,255,255,0.7)",
+                      // background: "rgba(255,255,255,0.7)",
                       padding: "2px 6px",
                       fontSize: "15px",
                       borderRadius: "4px"
@@ -697,7 +711,7 @@ const UserManagement = () => {
                   <img
                     src={currentUser.active_qr_code.qr_code_data}
                     alt="User QR Code"
-                    style={{ width: "150px", height: "150px", display: "block",marginLeft:"100px" }}
+                    style={{ width: "150px", height: "150px", display: "block", marginLeft: "100px" }}
                   />
                 </>
               ) : (
@@ -774,6 +788,82 @@ const UserManagement = () => {
                 required
               />
             </div>
+            <div className="form-group">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label>Other Phone Numbers (optional)</label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentUser({
+                      ...currentUser,
+                      otherPhones: [
+                        ...(currentUser.otherPhones || []),
+                        { country_code: "+91", phone_number: "" },
+                      ],
+                    })
+                  }
+                  style={{
+                    background: "#007bff",
+                    color: "white",
+                    border: "none",
+                    padding: "5px 10px",
+                    borderRadius: "4px",
+                    marginLeft: "10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ➕ Add
+                </button>
+              </div>
+
+              {(currentUser.otherPhones?.length ? currentUser.otherPhones : [{ country_code: "+91", phone_number: "" }])
+                .map((num, index) => (
+                  <div
+                    key={index}
+                    style={{ display: "flex", alignItems: "center", marginBottom: "5px", marginTop: "5px", width: "390px" }}
+                  >
+                    <input
+                      type="tel"
+                      value={num.phone_number || ""}
+
+                      onChange={(e) => {
+                        const newPhones = [...(currentUser.otherPhones?.length ? currentUser.otherPhones : [{ country_code: "+91", phone_number: "" }])];
+                        newPhones[index] = {
+                          ...newPhones[index],
+                          country_code: "+91",
+                          phone_number: e.target.value,
+                        };
+                        setCurrentUser({ ...currentUser, otherPhones: newPhones });
+                      }}
+                      style={{ flex: 1, marginRight: "8px" }}
+                    />
+
+                    {/* Show ❌ only for extra inputs (index > 0) */}
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newPhones = currentUser.otherPhones.filter((_, i) => i !== index);
+                          setCurrentUser({ ...currentUser, otherPhones: newPhones });
+                        }}
+                        style={{
+                          //background: "red",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "4px",
+                          padding: "0 8px",
+                          //marginLeft:"10px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ❌
+                      </button>
+                    )}
+                  </div>
+                ))}
+            </div>
+
+
 
             {modalType === "add" && (
               <div className="form-group">

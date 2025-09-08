@@ -18,24 +18,26 @@ const UserPayments = () => {
             try {
                 const res = await axiosInstance.get("/api/admin/user"); // fetch all users
                 if (res.data?.data) {
-                    const usersWithPayments = res.data.data.filter(u => u.active_payment); // only users having payments
+                    const mapped = res.data.data.flatMap(user =>
+                        (user.all_payments || []).map(payment => ({
+                            id: payment.id,
+                            userId: user.id,
+                            userName: user.full_name,
+                            planName: payment.plan_name || "-",
+                            planId: payment.plan_id,
+                            status: payment.status === "paid" ? "Success" :
+                                payment.status === "pending" ? "Pending" :
+                                    payment.status === "failed" ? "Failed" : payment.status,
+                            amount: payment.amount,
+                            method: payment.payment_method,
+                            transactionId: payment.gateway_payment_id || `PAY-${payment.id}`,
+                            transactionDate: payment.paid_at ? new Date(payment.paid_at).toISOString().split("T")[0] : "-",
+                            validityStart: payment.plan_start_date ? new Date(payment.plan_start_date).toISOString().split("T")[0] : "-",
+                            validityEnd: payment.plan_end_date ? new Date(payment.plan_end_date).toISOString().split("T")[0] : "-",
+                            selected: false,
+                        }))
+                    );
 
-                    const mapped = usersWithPayments.map(u => ({
-                        id: u.active_payment.id,
-                        userId: u.id,
-                        userName: u.full_name,
-                        planName: u.plan_details?.name || "-",
-                        planId: u.plan_details?.id,
-                        status: u.active_payment.status === "paid" ? "Success" : u.active_payment.status, // 👈 change here
-                        amount: u.active_payment.amount,
-                        method: u.active_payment.payment_method,
-                        transactionId: u.active_payment.gateway_payment_id || u.active_payment.id,
-                        transactionDate: new Date(u.active_payment.paid_at).toISOString().split("T")[0],
-                        validityStart: new Date(u.active_payment.plan_start_date).toISOString().split("T")[0],
-                        validityEnd: new Date(u.active_payment.plan_end_date).toISOString().split("T")[0],
-                        selected: false,
-
-                    }));
                     setPayments(mapped);
                 }
             } catch (err) {
@@ -150,7 +152,7 @@ const UserPayments = () => {
             y += 10;
         });
 
-        
+
         // Footer / Thank you
         doc.setTextColor(100);
         doc.setFontSize(11);
@@ -222,7 +224,7 @@ const UserPayments = () => {
                                             ⬅
                                         </div>
                                         {subFilterOpen === 'status' &&
-                                            ['Success', 'Pending', 'Failed'].map((status) => (
+                                            ['Success', 'Pending', 'Failed', 'Refunded'].map((status) => (
                                                 <div
                                                     key={status}
                                                     onClick={() => {
@@ -237,22 +239,22 @@ const UserPayments = () => {
                                             ))}
 
                                         {subFilterOpen === 'planName' &&
-                                            plans.map((plan) => (
+                                            [...new Set(payments.map(p => p.planName))].map((plan) => (
                                                 <div
-                                                    key={plan.id}
+                                                    key={plan}
                                                     onClick={() => {
                                                         setFilterType('planName');
-                                                        setFilterValue(plan.name);
+                                                        setFilterValue(plan);
                                                         setFilterOpen(false);
                                                         setSubFilterOpen('');
                                                     }}
                                                 >
-                                                    {plan.name}
+                                                    {plan}
                                                 </div>
                                             ))}
 
                                         {subFilterOpen === 'method' &&
-                                            ['Free','UPI', 'Debit Card', 'Credit Card', 'Netbanking','Wallet', "QR Code"].map((method) => (
+                                            [...new Set(payments.map(p => p.method))].map((method) => (
                                                 <div
                                                     key={method}
                                                     onClick={() => {
@@ -377,7 +379,7 @@ const UserPayments = () => {
                                             </button>
                                         </td>
                                     </tr>
-                             ))
+                                ))
                         )}
                     </tbody>
 

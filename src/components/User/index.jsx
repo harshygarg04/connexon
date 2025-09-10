@@ -46,6 +46,16 @@ const UserManagement = () => {
     });
   }, [users, search]);
 
+  // const fetchUpcomingPayments = async (userId) => {
+  //   try {
+  //     const res = await axiosInstance.get(`/api/admin/users/${userId}/upcoming-payments`);
+  //     return res.data?.data || [];
+  //   } catch (err) {
+  //     console.error("❌ Fetch upcoming payments failed:", err);
+  //     return [];
+  //   }
+  // };
+
 
 
   const handleDeleteWithConfirm = (id) => {
@@ -88,6 +98,7 @@ const UserManagement = () => {
     const fetchUsers = async () => {
       try {
         const res = await axiosInstance.get("/api/admin/user");
+
         setUsers(
           (res.data?.data || []).map((u) => ({
             ...u,
@@ -125,6 +136,7 @@ const UserManagement = () => {
         otherPhones: phones.slice(1).map((p) => ({
           id: p.id,
           phone_number: p.phone_number,
+          isDeleted: false,
         })),
       };
 
@@ -133,6 +145,8 @@ const UserManagement = () => {
       setOriginalUser(editableUser);
     } else if (type === "view") {
       setCurrentUser(user);
+
+
     } else if (type === "add") {
       setCurrentUser({
         first_name: "",
@@ -167,8 +181,26 @@ const UserManagement = () => {
     setActionLoading(true);
 
     try {
+      // ---------------------- ADD USER ----------------------
       if (modalType === "add") {
-        // Create payload
+        // Mandatory checks
+        if (!currentUser.first_name.trim()) {
+          toast.error("First Name is required");
+          return;
+        }
+        if (!currentUser.email.trim()) {
+          toast.error("Email is required");
+          return;
+        }
+        if (!currentUser.phone.trim()) {
+          toast.error("Phone number is required");
+          return;
+        }
+        if (!currentUser.password?.trim()) {
+          toast.error("Password is required");
+          return;
+        }
+
         const payload = {
           first_name: currentUser.first_name,
           middle_name: currentUser.middle_name,
@@ -181,10 +213,10 @@ const UserManagement = () => {
             { country_code: "+91", phone_number: currentUser.phone },
             ...(currentUser.otherPhones || []),
           ],
-
         };
 
         const res = await axiosInstance.post("/api/admin/user/create", payload);
+
         if (res.data?.data) {
           const created = res.data.data;
           setUsers((prev) => [
@@ -198,10 +230,12 @@ const UserManagement = () => {
           ]);
 
           toast.success(res.data?.message || "User added successfully!");
+          closeModal();
         }
       }
+
+      // ---------------------- EDIT USER ----------------------
       else if (modalType === "edit") {
-        // ✅ Only mandatory fields
         if (!currentUser.first_name.trim()) {
           toast.error("First Name is required");
           return;
@@ -214,130 +248,79 @@ const UserManagement = () => {
           toast.error("Phone number is required");
           return;
         }
-        if (modalType === "add" && !currentUser.password?.trim()) {
-          toast.error("Password is required");
-          return;
-        }
 
+        // Helper: convert empty string → null
+        const toNull = (val) => (val && val.trim() ? val.trim() : null);
 
-        const payload = {};
+        const payload = {
+          first_name: toNull(currentUser.first_name),
+          middle_name: toNull(currentUser.middle_name),
+          last_name: toNull(currentUser.last_name),
+          email: toNull(currentUser.email),
+          dob: toNull(currentUser.dob),
+          address: toNull(currentUser.address),
 
-        // Include optional fields only if they are not empty
-        if (currentUser.first_name !== originalUser.first_name) {
-          payload.first_name = currentUser.first_name;
-        }
-
-        if (currentUser.middle_name !== originalUser.middle_name) {
-          payload.middle_name = currentUser.middle_name?.trim() || "";  // allow blank
-        }
-
-        if (currentUser.last_name !== originalUser.last_name) {
-          payload.last_name = currentUser.last_name?.trim() || "";     // allow blank
-        }
-
-        if (currentUser.email !== originalUser.email) {
-          payload.email = currentUser.email;
-        }
-
-        if (currentUser.dob !== originalUser.dob) {
-          payload.dob = currentUser.dob?.trim() || null;              // allow null/empty
-        }
-
-        if (currentUser.address !== originalUser.address) {
-          payload.address = currentUser.address?.trim() || "";        // allow blank
-        }
-
-        // Phones (if changed)
-        // if (
-        //   currentUser.phone !== originalUser.phone ||
-        //   JSON.stringify(currentUser.otherPhones) !==
-        //   JSON.stringify(originalUser.otherPhones)
-        // ) 
-        {
-          // Replace-all phone_numbers array
-          payload.phone_numbers = [];
-
-          // index 0 → main registration number
-          if (currentUser.phone?.trim()) {
-            payload.phone_numbers.push({
-              country_code: "+91",
-              phone_number: currentUser.phone.trim(),
-            });
-          }
-
-          // index 1+ → other numbers
-          (currentUser.otherPhones || []).forEach((num) => {
-            if (num.phone_number?.trim()) {
-              payload.phone_numbers.push({
+          phone_numbers: [
+            {
+              id: currentUser.phone_id, // primary phone (locked)
+              country_code: currentUser.country_code || "+91",
+              phone_number: currentUser.phone,
+            },
+            ...(currentUser.otherPhones || []).map((num) => {
+              if (num.isDeleted) {
+                return { id: num.id }; // ✅ only id → backend deletes
+              }
+              return {
+                id: num.id || undefined,
                 country_code: num.country_code || "+91",
-                phone_number: num.phone_number.trim(),
-              });
-            }
-          });
+                phone_number: toNull(num.phone_number),
+              };
+            }),
 
+          ],
+        };
 
-        }
-
-        console.log("Sending payload:", payload);
-
-        // ... rest of your API call
         const res = await axiosInstance.put(
           `/api/admin/user/update/${currentUser.id}`,
           payload
         );
 
         const apiUser = res.data?.data ?? {};
+        const phones = apiUser.phone_numbers || [];
 
-        setUsers(prev =>
-          prev.map(u => {
-            if (u.id !== currentUser.id) return u;
-
-            // Start from what user typed (optimistic), then overlay API response if any
-            let merged = { ...u, ...currentUser, ...apiUser };
-
-            // Handle dob explicitly
-            if (apiUser.hasOwnProperty("dob")) {
-              // normalize if present
-              merged.dob = apiUser.dob ? apiUser.dob.split("T")[0] : "";
-            } else if (currentUser.dob === "") {
-              // if frontend cleared it, force empty string
-              merged.dob = "";
-            }
-
-            // Only (re)build phone fields if API sent phone_numbers
-            if (Array.isArray(apiUser.phone_numbers)) {
-              const phones = apiUser.phone_numbers;
-              merged.phone = phones[0]?.phone_number || "";
-              merged.phone_id = phones[0]?.id ?? null;
-              merged.otherPhones = phones.slice(1).map(p => ({
-                id: p.id,
-                country_code: p.country_code,
-                phone_number: p.phone_number,
-              }));
-            }
-
-            // Recompute full_name so UI updates immediately
-            merged.full_name = [merged.first_name, merged.middle_name, merged.last_name]
-              .filter(Boolean)
-              .join(" ");
-
-
-            return merged;
-          })
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === currentUser.id
+              ? {
+                ...u,
+                ...apiUser,
+                dob: apiUser.dob ? apiUser.dob.split("T")[0] : "",
+                phone: phones[0]?.phone_number || "",
+                phone_id: phones[0]?.id ?? null,
+                otherPhones: phones.slice(1),
+                full_name: [
+                  apiUser.first_name,
+                  apiUser.middle_name,
+                  apiUser.last_name,
+                ]
+                  .filter(Boolean)
+                  .join(" "),
+              }
+              : u
+          )
         );
 
         toast.success(res.data?.message || "User updated successfully!");
-
+        closeModal();
       }
-      closeModal();
     } catch (error) {
       console.error("❌ Save failed:", error.response?.data || error);
       toast.error(error.response?.data?.message || "Failed to save user");
     } finally {
       setActionLoading(false);
     }
-
   };
+
 
   // 🔹 5. Delete one
   const handleDelete = async (id) => {
@@ -386,21 +369,19 @@ const UserManagement = () => {
     );
 
     try {
-      const payload = { status: newStatus };
-
       const res = await axiosInstance.put(
-        `/api/admin/user/update/${user.id}`,
-        payload
+        `/api/admin/user/status/${user.id}`,
+        { status: newStatus }
       );
 
-      // Sync with backend response
+      // Sync with backend
       setUsers((prev) =>
         prev.map((u) =>
-          u.id === user.id ? { ...u, status: res.data.data.status } : u
+          u.id === user.id ? { ...u, status: res.data?.data?.status } : u
         )
       );
 
-      // ✅ Custom toast messages
+      // Toast
       if (res.data?.data?.status === "blocked") {
         toast.success("User blocked successfully!");
       } else if (res.data?.data?.status === "active") {
@@ -409,16 +390,29 @@ const UserManagement = () => {
     } catch (e) {
       console.error("❌ Toggle failed:", e.response?.data || e);
 
-      // Rollback UI change
+      // Rollback on error
       setUsers((prev) =>
         prev.map((u) => (u.id === user.id ? { ...u, status: user.status } : u))
       );
 
-      // ❌ Error toast
-      toast.error(
-        e.response?.data?.message || "Failed to update user status"
-      );
+      toast.error(e.response?.data?.message || "Failed to update user status");
     }
+  };
+  const handleRemovePhone = (index) => {
+    setCurrentUser((prev) => {
+      const updated = [...prev.otherPhones];
+      const phoneToRemove = updated[index];
+
+      if (phoneToRemove?.id) {
+        // existing phone → mark deleted
+        updated[index] = { ...phoneToRemove, isDeleted: true };
+      } else {
+        // new phone (no id yet) → remove completely
+        updated.splice(index, 1);
+      }
+
+      return { ...prev, otherPhones: updated };
+    });
   };
 
 
@@ -666,19 +660,59 @@ const UserManagement = () => {
             <p><b>Email:</b> {currentUser.email}</p>
             <p><b>Date Of Birth:</b> {currentUser.dob || "N/A"}</p>
             <p><b>Address:</b> {currentUser.address || "N/A"}</p>
-            <p><b>Plans Purchased:</b></p>
-            {currentUser.all_payments?.length > 0 ? (
+            <p><b>Active Plan:</b></p>
+
+            {currentUser.plan_details?.name
+              || currentUser.active_payments?.[0]?.plan_name
+              || currentUser.all_payments?.[0]?.plan_name ? (
               <ul style={{ marginLeft: "20px" }}>
-                {currentUser.all_payments.map((p, i) => (
-                  <li key={i}>
-                    {p.plan_name} — {p.status}
-                    ({p.plan_start_date?.split("T")[0]} → {p.plan_end_date?.split("T")[0]})
-                  </li>
-                ))}
+                <li>
+                  <b>{currentUser.plan_details?.name
+                    || currentUser.active_payments?.[0]?.plan_name
+                    || currentUser.all_payments?.[0]?.plan_name}</b> <br />
+                  <span>
+                    Start: {new Date(currentUser.active_payments?.[0]?.plan_start_date
+                      || currentUser.all_payments?.[0]?.plan_start_date).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                  </span> |
+                  <span>
+                    End: {new Date(currentUser.active_payments?.[0]?.plan_end_date
+                      || currentUser.all_payments?.[0]?.plan_end_date).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                  </span>
+                </li>
               </ul>
             ) : (
-              <p>No plans purchased</p>
+              <p style={{ marginLeft: "20px" }}>No active plan</p>
             )}
+
+
+
+            <p><b>Upcoming Plans:</b></p>
+
+            {currentUser.upcoming_payments?.length ? (
+              <ul style={{ marginLeft: "20px" }}>
+                {currentUser.upcoming_payments.map((p, i) => {
+                  const start = new Date(p.plan_start_date).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  });
+                  const end = new Date(p.plan_end_date).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  });
+
+                  return (
+                    <li key={i}>
+                      <b>{p.plan_name}</b> — {p.status} <br />
+                      <span>Start: {start}</span> | <span>End: {end}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p>No upcoming plans</p>
+            )}
+
+
 
             <p className="phone-row">
               <b>Other Numbers:</b>
@@ -816,51 +850,53 @@ const UserManagement = () => {
                 </button>
               </div>
 
-              {(currentUser.otherPhones?.length ? currentUser.otherPhones : [{ country_code: "+91", phone_number: "" }])
-                .map((num, index) => (
-                  <div
-                    key={index}
-                    style={{ display: "flex", alignItems: "center", marginBottom: "5px", marginTop: "5px", width: "390px" }}
-                  >
-                    <input
-                      type="tel"
-                      value={num.phone_number || ""}
+              {(currentUser.otherPhones?.length
+                ? currentUser.otherPhones.filter((p) => !p.isDeleted) // hide deleted
+                : [{ country_code: "+91", phone_number: "" }]
+              ).map((num, index) => (
+                <div
+                  key={index}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: "5px",
+                    marginTop: "5px",
+                    width: "390px",
+                  }}
+                >
+                  <input
+                    type="tel"
+                    value={num.phone_number || ""}
+                    onChange={(e) => {
+                      const newPhones = [...currentUser.otherPhones];
+                      newPhones[index] = {
+                        ...newPhones[index],
+                        country_code: "+91",
+                        phone_number: e.target.value,
+                      };
+                      setCurrentUser({ ...currentUser, otherPhones: newPhones });
+                    }}
+                    style={{ flex: 1, marginRight: "8px" }}
+                  />
 
-                      onChange={(e) => {
-                        const newPhones = [...(currentUser.otherPhones?.length ? currentUser.otherPhones : [{ country_code: "+91", phone_number: "" }])];
-                        newPhones[index] = {
-                          ...newPhones[index],
-                          country_code: "+91",
-                          phone_number: e.target.value,
-                        };
-                        setCurrentUser({ ...currentUser, otherPhones: newPhones });
+                  {index > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhone(index)}
+                      style={{
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        padding: "0 8px",
+                        cursor: "pointer",
                       }}
-                      style={{ flex: 1, marginRight: "8px" }}
-                    />
+                    >
+                      ❌
+                    </button>
+                  )}
+                </div>
+              ))}
 
-                    {/* Show ❌ only for extra inputs (index > 0) */}
-                    {index > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newPhones = currentUser.otherPhones.filter((_, i) => i !== index);
-                          setCurrentUser({ ...currentUser, otherPhones: newPhones });
-                        }}
-                        style={{
-                          //background: "red",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "4px",
-                          padding: "0 8px",
-                          //marginLeft:"10px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        ❌
-                      </button>
-                    )}
-                  </div>
-                ))}
             </div>
 
 

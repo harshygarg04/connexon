@@ -70,7 +70,7 @@ const Wrapper = styled.section`
 
 
   .table-container {
-    max-height: calc(90vh - 200px);
+    max-height: 515px;
     overflow-y: auto;
     box-sizing: border-box;
     table-layout: fixed;

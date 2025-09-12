@@ -130,6 +130,7 @@ const UserManagement = () => {
         email: user.email || "",
         dob: user.dob ? user.dob.split("T")[0] : "",
         address: user.address || "",
+         event_name: user.event_name || "",  
         status: user.status || "active",
         phone: phones[0]?.phone_number || "",
         phone_id: phones[0]?.id || null,  // keep id for updates
@@ -259,7 +260,7 @@ const UserManagement = () => {
           email: toNull(currentUser.email),
           dob: toNull(currentUser.dob),
           address: toNull(currentUser.address),
-
+          event_name: toNull(currentUser.event_name),
           phone_numbers: [
             {
               id: currentUser.phone_id, // primary phone (locked)
@@ -305,6 +306,7 @@ const UserManagement = () => {
                 ]
                   .filter(Boolean)
                   .join(" "),
+                event_name: apiUser.event_name || null,
               }
               : u
           )
@@ -657,11 +659,13 @@ const UserManagement = () => {
             <h3 className="view-title">User Details</h3>
             <p><b>User ID:</b> {currentUser.id}</p>
             <p><b>Name:</b> {currentUser.full_name}</p>
+             <p><b>Event Name:</b> {currentUser.event_name || "N/A"}</p>
             <p><b>Email:</b> {currentUser.email}</p>
             <p><b>Date Of Birth:</b> {currentUser.dob || "N/A"}</p>
             <p><b>Address:</b> {currentUser.address || "N/A"}</p>
+           
             <p><b>Active Plan:</b></p>
-
+            
             {currentUser.plan_details?.name
               || currentUser.active_payments?.[0]?.plan_name
               || currentUser.all_payments?.[0]?.plan_name ? (
@@ -711,8 +715,6 @@ const UserManagement = () => {
             ) : (
               <p>No upcoming plans</p>
             )}
-
-
 
             <p className="phone-row">
               <b>Other Numbers:</b>
@@ -810,18 +812,34 @@ const UserManagement = () => {
                 required
               />
             </div>
+            {modalType === "edit" && (
+              <div className="form-group">
+                <label>Event Name (optional)</label>
+                <input
+                  type="text"
+                  value={currentUser.event_name || ""}
+                  onChange={(e) =>
+                    setCurrentUser({ ...currentUser, event_name: e.target.value })
+                  }
+                />
+              </div>
+            )}
 
-            <div className="form-group">
-              <label>Registration Number</label>
-              <input
-                type="tel"
-                value={currentUser.phone || ""}
-                onChange={(e) =>
-                  setCurrentUser({ ...currentUser, phone: e.target.value })
-                }
-                required
-              />
-            </div>
+
+            {modalType === "add" && (
+              <div className="form-group">
+                <label>Registration Number</label>
+                <input
+                  type="tel"
+                  value={currentUser.phone || ""}
+                  onChange={(e) =>
+                    setCurrentUser({ ...currentUser, phone: e.target.value })
+                  }
+                  required
+                />
+              </div>
+            )}
+
             <div className="form-group">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <label>Other Phone Numbers (optional)</label>
@@ -899,8 +917,6 @@ const UserManagement = () => {
 
             </div>
 
-
-
             {modalType === "add" && (
               <div className="form-group">
                 <label>Password</label>
@@ -951,8 +967,5 @@ const UserManagement = () => {
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
     </Wrapper>
   );
-
-
 };
-
 export default UserManagement;

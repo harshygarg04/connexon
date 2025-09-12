@@ -10,6 +10,8 @@ import Reports from './components/Reports';
 import Setting from './components/Setting';
 import Login from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ResetPass from "./components/ResetPass"
+import Activation from './components/Activation';
 
 
 const App = () => {
@@ -18,6 +20,8 @@ const App = () => {
       <Routes>
         {/* Login Route */}
         <Route path="/login" element={<Login />} />
+        <Route path="/resetNewPassword/:token" element={<ResetPass />} />
+        <Route path="/activate/:token" element={<Activation />} />
 
         {/* Protected Routes */}
         <Route

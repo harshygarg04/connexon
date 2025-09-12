@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import Wrapper from "./style";
-import SuccessLoading from "../SuccessLoading";
+import ActionLoader from "../ActionLoader";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
@@ -160,7 +160,7 @@ const PasswordReset = () => {
   return (
     <Wrapper>
       <div className="reset-container">
-        {loading && <SuccessLoading />}
+        {loading && <ActionLoader/>}
         <div className="reset-card">
           <div className="brand-logo">
             <FaLock size={40} color="rgb(177, 179, 215)" />

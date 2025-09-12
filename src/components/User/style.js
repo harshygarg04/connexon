@@ -510,8 +510,19 @@ const Wrapper = styled.section`
   font-size: 14px;
   font-weight: 500;
   margin-bottom: 4px;
-  color: #333;
+  //color: #333;
 }
+  .label-required {
+  color: #d9534f; /* red */
+  font-weight: 600;
+}
+
+.label-optional {
+  color: color: #007bff !important;  /* muted gray */
+  font-weight: 500;
+  //font-style: italic;
+}
+
 
 `;
 

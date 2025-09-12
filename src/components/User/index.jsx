@@ -55,6 +55,71 @@ const UserManagement = () => {
   //     return [];
   //   }
   // };
+  const countryCodes = [
+    { name: "India", code: "+91" },
+    { name: "United States", code: "+1" },
+    { name: "United Kingdom", code: "+44" },
+    { name: "Canada", code: "+1" },
+    { name: "Australia", code: "+61" },
+    { name: "Germany", code: "+49" },
+    { name: "France", code: "+33" },
+    { name: "Singapore", code: "+65" },
+    // 👉 add more as needed or load from JSON
+  ];
+
+  const CountryDropdown = ({ value, onChange }) => {
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const filtered = countryCodes.filter(
+      (c) =>
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.code.includes(searchTerm)
+    );
+
+    return (
+      <div style={{ position: "relative", width: "120px", marginRight: "8px" }}>
+        <input
+          type="text"
+          value={searchTerm || value}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search"
+          style={{ width: "100%", padding: "5px" }}
+          onFocus={() => setSearchTerm("")}
+        />
+        {searchTerm && (
+          <div
+            style={{
+              position: "absolute",
+              background: "white",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              width: "100%",
+              maxHeight: "150px",
+              overflowY: "auto",
+              zIndex: 1000,
+            }}
+          >
+            {filtered.map((c) => (
+              <div
+                key={c.code + c.name}
+                onClick={() => {
+                  onChange(c.code);
+                  setSearchTerm("");
+                }}
+                style={{
+                  padding: "5px",
+                  cursor: "pointer",
+                }}
+              >
+                {c.name} ({c.code})
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
 
 
 
@@ -130,7 +195,7 @@ const UserManagement = () => {
         email: user.email || "",
         dob: user.dob ? user.dob.split("T")[0] : "",
         address: user.address || "",
-         event_name: user.event_name || "",  
+        event_name: user.event_name || "",
         status: user.status || "active",
         phone: phones[0]?.phone_number || "",
         phone_id: phones[0]?.id || null,  // keep id for updates
@@ -659,13 +724,13 @@ const UserManagement = () => {
             <h3 className="view-title">User Details</h3>
             <p><b>User ID:</b> {currentUser.id}</p>
             <p><b>Name:</b> {currentUser.full_name}</p>
-             <p><b>Event Name:</b> {currentUser.event_name || "N/A"}</p>
+            <p><b>Event Name:</b> {currentUser.event_name || "N/A"}</p>
             <p><b>Email:</b> {currentUser.email}</p>
             <p><b>Date Of Birth:</b> {currentUser.dob || "N/A"}</p>
             <p><b>Address:</b> {currentUser.address || "N/A"}</p>
-           
+
             <p><b>Active Plan:</b></p>
-            
+
             {currentUser.plan_details?.name
               || currentUser.active_payments?.[0]?.plan_name
               || currentUser.all_payments?.[0]?.plan_name ? (
@@ -768,7 +833,7 @@ const UserManagement = () => {
           <div className="modal-content form-modal">
             <h3>{modalType === "add" ? "Add User" : "Edit User"}</h3>
             <div className="form-group">
-              <label>First Name</label>
+              <label className="label-required">First Name</label>
               <input
                 type="text"
                 value={currentUser.first_name || ""}
@@ -780,7 +845,7 @@ const UserManagement = () => {
             </div>
 
             <div className="form-group">
-              <label>Middle Name (optional)</label>
+              <label className="label-optional">Middle Name (optional)</label>
               <input
                 type="text"
                 value={currentUser.middle_name || ""}
@@ -791,7 +856,7 @@ const UserManagement = () => {
             </div>
 
             <div className="form-group">
-              <label>Last Name (optional)</label>
+              <label className="label-optional">Last Name (optional)</label>
               <input
                 type="text"
                 value={currentUser.last_name || ""}
@@ -802,7 +867,7 @@ const UserManagement = () => {
             </div>
 
             <div className="form-group">
-              <label>Email</label>
+              <label className="label-required">Email</label>
               <input
                 type="email"
                 value={currentUser.email || ""}
@@ -814,7 +879,7 @@ const UserManagement = () => {
             </div>
             {modalType === "edit" && (
               <div className="form-group">
-                <label>Event Name (optional)</label>
+                <label className="label-optional">Event Name (optional)</label>
                 <input
                   type="text"
                   value={currentUser.event_name || ""}
@@ -828,7 +893,7 @@ const UserManagement = () => {
 
             {modalType === "add" && (
               <div className="form-group">
-                <label>Registration Number</label>
+                <label className="label-required">Registration Number</label>
                 <input
                   type="tel"
                   value={currentUser.phone || ""}
@@ -842,7 +907,7 @@ const UserManagement = () => {
 
             <div className="form-group">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <label>Other Phone Numbers (optional)</label>
+                <label className="label-optional">Other Phone Numbers (optional)</label>
                 <button
                   type="button"
                   onClick={() =>
@@ -919,7 +984,7 @@ const UserManagement = () => {
 
             {modalType === "add" && (
               <div className="form-group">
-                <label>Password</label>
+                <label className="label-required">Password</label>
                 <input
                   type="password"
                   value={currentUser.password || ""}
@@ -932,7 +997,7 @@ const UserManagement = () => {
             )}
 
             <div className="form-group">
-              <label>Address (optional)</label>
+              <label className="label-optional">Address (optional)</label>
               <input
                 type="text"
                 value={currentUser.address || ""}
@@ -943,7 +1008,7 @@ const UserManagement = () => {
             </div>
 
             <div className="form-group">
-              <label>Date Of Birth (yyyy-mm-dd)Optional</label>
+              <label className="label-optional">Date Of Birth (yyyy-mm-dd) (optional)</label>
               <input
                 type="text"
                 value={currentUser.dob || ""}

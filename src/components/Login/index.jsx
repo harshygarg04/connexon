@@ -7,7 +7,7 @@ import Loader from "../../components/Loader";
 import axiosInstance from '../../axios/axiosInstance';
 
 
-const Login = () => {
+  const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,6 +21,7 @@ const Login = () => {
     setError("");
     setLoading(true);
 
+
     try {
       const response = await axiosInstance.post("/api/admin/login", {
         email,
@@ -33,6 +34,7 @@ const Login = () => {
         // Redirect to dashboard or users page
         navigate("/user");
       }
+
     } catch (err) {
       if (err.response) {
         // Server responded with error
@@ -45,11 +47,13 @@ const Login = () => {
       setLoading(false);
     }
   };
+  
 
   if (loading) return <Loader loading={loading} />;
   return (
     <Wrapper>
       <div className="login-container">
+        
         <form className="login-form" onSubmit={handleLogin}>
           <h2>Admin Login</h2>
 

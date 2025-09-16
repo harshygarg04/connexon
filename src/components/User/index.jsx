@@ -9,6 +9,9 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import 'react-confirm-alert/src/react-confirm-alert.css';
 import { confirmAlert } from 'react-confirm-alert';
+import countryData from "country-telephone-data";
+import Select, { components } from "react-select";
+//import countryList from "react-select-country-list";
 
 
 
@@ -46,78 +49,61 @@ const UserManagement = () => {
     });
   }, [users, search]);
 
-  // const fetchUpcomingPayments = async (userId) => {
-  //   try {
-  //     const res = await axiosInstance.get(`/api/admin/users/${userId}/upcoming-payments`);
-  //     return res.data?.data || [];
-  //   } catch (err) {
-  //     console.error("❌ Fetch upcoming payments failed:", err);
-  //     return [];
-  //   }
-  // };
-  const countryCodes = [
-    { name: "India", code: "+91" },
-    { name: "United States", code: "+1" },
-    { name: "United Kingdom", code: "+44" },
-    { name: "Canada", code: "+1" },
-    { name: "Australia", code: "+61" },
-    { name: "Germany", code: "+49" },
-    { name: "France", code: "+33" },
-    { name: "Singapore", code: "+65" },
-    // 👉 add more as needed or load from JSON
-  ];
+  const SingleValue = (props) => (
+    <components.SingleValue {...props}>
+      {props.data.value} {/* only show code like +91 */}
+    </components.SingleValue>
+  );
 
-  const CountryDropdown = ({ value, onChange }) => {
-    const [searchTerm, setSearchTerm] = useState("");
 
-    const filtered = countryCodes.filter(
-      (c) =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.code.includes(searchTerm)
-    );
+  const allCountries = (countryData && countryData.allCountries) || [];
+  const countryOptions = useMemo(() => {
+    return allCountries.map((c) => ({
+      value: c.dialCode ? `+${c.dialCode}` : "+0",
+      label: `${c.name} ${c.dialCode ? `(+${c.dialCode})` : ""}`,
+      iso2: c.iso2,
+    }));
+  }, []);
 
-    return (
-      <div style={{ position: "relative", width: "120px", marginRight: "8px" }}>
-        <input
-          type="text"
-          value={searchTerm || value}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search"
-          style={{ width: "100%", padding: "5px" }}
-          onFocus={() => setSearchTerm("")}
-        />
-        {searchTerm && (
-          <div
-            style={{
-              position: "absolute",
-              background: "white",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              width: "100%",
-              maxHeight: "150px",
-              overflowY: "auto",
-              zIndex: 1000,
-            }}
-          >
-            {filtered.map((c) => (
-              <div
-                key={c.code + c.name}
-                onClick={() => {
-                  onChange(c.code);
-                  setSearchTerm("");
-                }}
-                style={{
-                  padding: "5px",
-                  cursor: "pointer",
-                }}
-              >
-                {c.name} ({c.code})
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+
+
+  const selectStyles = {
+    control: (provided) => ({
+      ...provided,
+      minHeight: "38px",
+      height: "38px",
+      // borderRadius: "4px",
+      width: "100px",       // 👈 shrink input box
+      paddingLeft: "4px",
+    }),
+    valueContainer: (provided) => ({
+      ...provided,
+      height: "38px",
+      padding: "0 4px",
+    }),
+    indicatorsContainer: (provided) => ({
+      ...provided,
+      height: "38px",
+    }),
+    input: (provided) => ({
+      ...provided,
+      margin: 0,
+      padding: 0,
+    }),
+    menu: (provided) => ({
+      ...provided,
+      width: "200px",      // 👈 keep dropdown list wide
+    }),
+    menuPortal: (provided) => ({
+      ...provided,
+      width: "300px",      // 👈 ensures full list width when portal is used
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      fontSize: "13px",     // 👈 smaller font size
+      textAlign: "left",    // 👈 left align text
+      // padding: "6px 10px",  // tighten spacing
+    }),
   };
 
 
@@ -168,6 +154,7 @@ const UserManagement = () => {
           (res.data?.data || []).map((u) => ({
             ...u,
             phone: u.phone_numbers?.[0]?.phone_number || "",
+
             otherPhones: u.phone_numbers?.slice(1) || [],
             selected: false,
           }))
@@ -187,6 +174,7 @@ const UserManagement = () => {
 
     if (type === "edit") {
       const phones = user.phone_numbers || [];
+      const primary = phones[0] || {};
       const editableUser = {
         id: user.id,
         first_name: user.first_name || "",
@@ -199,9 +187,11 @@ const UserManagement = () => {
         status: user.status || "active",
         phone: phones[0]?.phone_number || "",
         phone_id: phones[0]?.id || null,  // keep id for updates
+        country_code: primary.country_code || "+91",
         otherPhones: phones.slice(1).map((p) => ({
           id: p.id,
           phone_number: p.phone_number,
+          country_code: p.country_code || "+91",
           isDeleted: false,
         })),
       };
@@ -223,6 +213,7 @@ const UserManagement = () => {
         dob: "",
         address: "",
         phone: "",
+        country_code: "+91",
         otherPhones: [],
         status: "active",
       });
@@ -276,8 +267,11 @@ const UserManagement = () => {
           dob: currentUser.dob,
           address: currentUser.address,
           phone_numbers: [
-            { country_code: "+91", phone_number: currentUser.phone },
-            ...(currentUser.otherPhones || []),
+            { country_code: currentUser.country_code || "+91", phone_number: currentUser.phone },
+            ...(currentUser.otherPhones || []).filter(p => !p.isDeleted).map(p => ({
+              country_code: p.country_code || currentUser.country_code || "+91",
+              phone_number: p.phone_number,
+            })),
           ],
         };
 
@@ -328,22 +322,20 @@ const UserManagement = () => {
           event_name: toNull(currentUser.event_name),
           phone_numbers: [
             {
-              id: currentUser.phone_id, // primary phone (locked)
+              id: currentUser.phone_id,
               country_code: currentUser.country_code || "+91",
               phone_number: currentUser.phone,
             },
             ...(currentUser.otherPhones || []).map((num) => {
-              if (num.isDeleted) {
-                return { id: num.id }; // ✅ only id → backend deletes
-              }
+              if (num.isDeleted) return { id: num.id }; // backend will delete
               return {
                 id: num.id || undefined,
-                country_code: num.country_code || "+91",
+                country_code: num.country_code || currentUser.country_code || "+91",
                 phone_number: toNull(num.phone_number),
               };
             }),
-
           ],
+
         };
 
         const res = await axiosInstance.put(
@@ -363,6 +355,7 @@ const UserManagement = () => {
                 dob: apiUser.dob ? apiUser.dob.split("T")[0] : "",
                 phone: phones[0]?.phone_number || "",
                 phone_id: phones[0]?.id ?? null,
+                country_code: phones[0]?.country_code || "+91",
                 otherPhones: phones.slice(1),
                 full_name: [
                   apiUser.first_name,
@@ -606,6 +599,7 @@ const UserManagement = () => {
                   }
                   checked={users.length > 0 && users.every((u) => u.selected)}
                 />
+
               </th>
               <th>ID</th>
               <th>Name</th>
@@ -645,7 +639,14 @@ const UserManagement = () => {
                   <td className="name-wrap"><div
                     className="name-text"
                   >{user.email}</div> </td>
-                  <td>{user.phone || "N/A"}</td>
+                  {/* <td>{user.phone || "N/A"}</td> */}
+                  <td>
+                    {user.phone_numbers?.[0]
+                      ? `${user.phone_numbers[0].country_code || "+91"} ${user.phone_numbers[0].phone_number}`
+                      : "N/A"}
+                  </td>
+
+
                   <td>{user.plan_details?.name
                     || user.active_payments?.[0]?.plan_name
                     || user.all_payments?.[0]?.plan_name
@@ -853,6 +854,7 @@ const UserManagement = () => {
                   setCurrentUser({ ...currentUser, middle_name: e.target.value })
                 }
               />
+
             </div>
 
             <div className="form-group">
@@ -894,30 +896,48 @@ const UserManagement = () => {
             {modalType === "add" && (
               <div className="form-group">
                 <label className="label-required">Registration Number</label>
-                <input
-                  type="tel"
-                  value={currentUser.phone || ""}
-                  onChange={(e) =>
-                    setCurrentUser({ ...currentUser, phone: e.target.value })
-                  }
-                  required
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, width: "385px" }}>
+                  {/* <div style={{ width: 200 }}> */}
+                  <Select
+                    options={countryOptions}
+                    styles={selectStyles}
+                    isSearchable
+                    placeholder="Country"
+                    //  menuPortalTarget={document.body}  
+                    components={{ SingleValue }}
+                    value={countryOptions.find(opt => opt.value === (currentUser.country_code || "+91")) || null}
+                    onChange={(opt) => setCurrentUser({ ...currentUser, country_code: opt?.value || "+91" })}
+                  />
+                  {/* </div> */}
+
+                  <input
+                    type="tel"
+                    value={currentUser.phone || ""}
+                    onChange={(e) => setCurrentUser({ ...currentUser, phone: e.target.value })}
+                    required
+                  //style={{ flex: 1, padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }}
+                  //placeholder="Enter phone number"
+                  />
+
+                </div>
+
               </div>
             )}
 
             <div className="form-group">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <label className="label-optional">Other Phone Numbers (optional)</label>
+
                 <button
                   type="button"
                   onClick={() =>
-                    setCurrentUser({
-                      ...currentUser,
+                    setCurrentUser((prev) => ({
+                      ...prev,
                       otherPhones: [
-                        ...(currentUser.otherPhones || []),
+                        ...(prev.otherPhones || []),
                         { country_code: "+91", phone_number: "" },
                       ],
-                    })
+                    }))
                   }
                   style={{
                     background: "#007bff",
@@ -931,54 +951,68 @@ const UserManagement = () => {
                 >
                   ➕ Add
                 </button>
+
               </div>
 
-              {(currentUser.otherPhones?.length
-                ? currentUser.otherPhones.filter((p) => !p.isDeleted) // hide deleted
-                : [{ country_code: "+91", phone_number: "" }]
-              ).map((num, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    marginBottom: "5px",
-                    marginTop: "5px",
-                    width: "390px",
-                  }}
-                >
-                  <input
-                    type="tel"
-                    value={num.phone_number || ""}
-                    onChange={(e) => {
-                      const newPhones = [...currentUser.otherPhones];
-                      newPhones[index] = {
-                        ...newPhones[index],
-                        country_code: "+91",
-                        phone_number: e.target.value,
-                      };
-                      setCurrentUser({ ...currentUser, otherPhones: newPhones });
-                    }}
-                    style={{ flex: 1, marginRight: "8px" }}
-                  />
 
-                  {index > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePhone(index)}
-                      style={{
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        padding: "0 8px",
-                        cursor: "pointer",
+              {currentUser.otherPhones
+                .filter((p) => !p.isDeleted)
+                .map((num, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      marginBottom: 8,
+                      marginTop: 8,
+                      gap: 8,
+                      width: "385px",
+                    }}
+                  >
+                    <Select
+                      options={countryOptions}
+                      components={{ SingleValue }}
+                      styles={selectStyles}
+                      isSearchable
+                      value={countryOptions.find(
+                        (opt) => opt.value === (num.country_code || "+91")
+                      )}
+                      onChange={(opt) => {
+                        const newPhones = [...currentUser.otherPhones];
+                        newPhones[index] = {
+                          ...newPhones[index],
+                          country_code: opt?.value || "+91",
+                        };
+                        setCurrentUser({ ...currentUser, otherPhones: newPhones });
                       }}
-                    >
-                      ❌
-                    </button>
-                  )}
-                </div>
-              ))}
+                    />
+
+                    <input
+                      type="tel"
+                      value={num.phone_number || ""}
+                      onChange={(e) => {
+                        const newPhones = [...currentUser.otherPhones];
+                        newPhones[index] = {
+                          ...newPhones[index],
+                          phone_number: e.target.value,
+                        };
+                        setCurrentUser({ ...currentUser, otherPhones: newPhones });
+                      }}
+                    />
+
+                    {(
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhone(index)}
+                        style={{ padding: "6px", cursor: "pointer" }}
+                      >
+                        ❌
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+
 
             </div>
 

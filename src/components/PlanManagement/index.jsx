@@ -108,6 +108,7 @@ const PlanManagement = () => {
   const handleBulkDeleteWithConfirm = () => {
     const selectedIds = plans.filter((p) => p.selected).map((p) => p.id);
 
+
     if (!selectedIds.length) {
       toast.error("No plans selected to delete");
       return;
